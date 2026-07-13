@@ -20,11 +20,12 @@ preview Telegram automatically renders for the Cineville page:
 
 ![Example Telegram notification for the film "The Invite"](assets/example.png)
 
-*(The notification text itself is in Dutch, since Cineville is a Dutch-only
-service — translation: "The Invite is on your watchlist and is showing this
-week in amsterdam, amstelveen! ⭐ IMDb 7.8/10". The title links to the film's
-Cineville page, and Telegram automatically renders a preview card with the
-poster and description for it.)*
+*(This example was generated with `language` set to `"nl"` — translation:
+"The Invite is on your watchlist and is showing this week in amsterdam,
+amstelveen! ⭐ IMDb 7.8/10". Set `language` to `"en"` for English messages and
+links instead. The title links to the film's Cineville page, and Telegram
+automatically renders a preview card with the poster and description for
+it.)*
 
 Every run also sends a short heartbeat, so you know the check actually ran
 even when there's nothing new:
