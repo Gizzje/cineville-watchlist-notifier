@@ -21,6 +21,70 @@ AMS_TZ = ZoneInfo("Europe/Amsterdam")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("cineville_notify")
 
+FILM_LOCALES = {"nl": "nl-NL", "en": "en-GB"}
+
+MESSAGES = {
+    "nl": {
+        "notify": "🎬 {title_html} staat op je watchlist en is deze week te zien in {cities}!",
+        "rating_imdb": "⭐ IMDb {value}/10",
+        "rating_rt": "🍅 Rotten Tomatoes {value}",
+        "summary_first_run": (
+            "✅ Cineville-check gedaan (eerste run). Agenda komende week: "
+            "{week_count} films in {cities}, waarvan {matches} op je watchlist. "
+            "Geschiedenis is gevuld; vanaf volgende week krijg je meldingen bij "
+            "nieuwe treffers."
+        ),
+        "summary": (
+            "✅ Cineville-check gedaan: {matches} watchlist-film(s) deze week in "
+            "{cities}, waarvan {new} nieuw beschikbaar."
+        ),
+        "cookie_expired": (
+            "⚠️ Je Cineville-sessie is verlopen. Log opnieuw in via cineville.nl "
+            "en ververs de 'cineville_cookie' in config.json."
+        ),
+        "cookie_expiring": (
+            "⏳ Let op: je Cineville-sessie verloopt over {days} dag(en) (rond "
+            "{date}). Log opnieuw in via cineville.nl en ververs de cookie "
+            "(/setcookie of config.json) voordat de meldingen stoppen."
+        ),
+        "network_error": "⚠️ Cineville-check mislukt (netwerkfout): {error}",
+        "unexpected_error": "⚠️ Cineville-check mislukt: {error}",
+        "unknown_title": "Onbekende titel",
+    },
+    "en": {
+        "notify": "🎬 {title_html} is on your watchlist and is showing this week in {cities}!",
+        "rating_imdb": "⭐ IMDb {value}/10",
+        "rating_rt": "🍅 Rotten Tomatoes {value}",
+        "summary_first_run": (
+            "✅ Cineville check done (first run). Agenda for next week: "
+            "{week_count} films in {cities}, of which {matches} are on your "
+            "watchlist. History has been seeded; from next week you'll get "
+            "notifications for new matches."
+        ),
+        "summary": (
+            "✅ Cineville check done: {matches} watchlist film(s) this week in "
+            "{cities}, of which {new} newly available."
+        ),
+        "cookie_expired": (
+            "⚠️ Your Cineville session has expired. Log in again via cineville.nl "
+            "and refresh 'cineville_cookie' in config.json."
+        ),
+        "cookie_expiring": (
+            "⏳ Heads up: your Cineville session expires in {days} day(s) (around "
+            "{date}). Log in again via cineville.nl and refresh the cookie "
+            "(/setcookie or config.json) before notifications stop."
+        ),
+        "network_error": "⚠️ Cineville check failed (network error): {error}",
+        "unexpected_error": "⚠️ Cineville check failed: {error}",
+        "unknown_title": "Unknown title",
+    },
+}
+
+
+def t(lang, key, **kwargs):
+    strings = MESSAGES.get(lang, MESSAGES["nl"])
+    return strings[key].format(**kwargs)
+
 
 def load_config(path):
     return json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
@@ -46,7 +110,7 @@ def get_access_token(cookie):
     return token, user_id, expires
 
 
-def check_cookie_expiry(expires_str, warning_days, bot_token, chat_id):
+def check_cookie_expiry(expires_str, warning_days, bot_token, chat_id, language):
     """Waarschuwt alvast als de sessiecookie binnen `warning_days` verloopt,
     in plaats van pas te melden zodra hij al verlopen is."""
     if not expires_str:
@@ -59,10 +123,11 @@ def check_cookie_expiry(expires_str, warning_days, bot_token, chat_id):
     if days_left <= warning_days:
         send_telegram(
             bot_token, chat_id,
-            f"⏳ Let op: je Cineville-sessie verloopt over {days_left} dag(en) "
-            f"(rond {expires_dt.astimezone(AMS_TZ).strftime('%d-%m-%Y')}). "
-            "Log opnieuw in via cineville.nl en ververs de cookie (/setcookie of "
-            "config.json) voordat de meldingen stoppen.",
+            t(
+                language, "cookie_expiring",
+                days=days_left,
+                date=expires_dt.astimezone(AMS_TZ).strftime("%d-%m-%Y"),
+            ),
         )
 
 
@@ -187,35 +252,29 @@ def fetch_ratings(title, release_year, api_key):
     return {"imdb": imdb if imdb and imdb != "N/A" else None, "rt": rt}
 
 
-def build_summary_message(first_run, matches_count, newly_count, week_film_count, cities):
+def build_summary_message(first_run, matches_count, newly_count, week_film_count, cities, language):
+    cities_str = ", ".join(cities)
     if first_run:
-        return (
-            f"✅ Cineville-check gedaan (eerste run). Agenda komende week: "
-            f"{week_film_count} films in {', '.join(cities)}, waarvan {matches_count} "
-            f"op je watchlist. Geschiedenis is gevuld; vanaf volgende week krijg je "
-            f"meldingen bij nieuwe treffers."
+        return t(
+            language, "summary_first_run",
+            week_count=week_film_count, cities=cities_str, matches=matches_count,
         )
-    return (
-        f"✅ Cineville-check gedaan: {matches_count} watchlist-film(s) deze week in "
-        f"{', '.join(cities)}, waarvan {newly_count} nieuw beschikbaar."
-    )
+    return t(language, "summary", matches=matches_count, cities=cities_str, new=newly_count)
 
 
-def build_message(title, slug, cities, ratings):
+def build_message(title, slug, cities, ratings, language):
     if slug:
-        title_html = f'<a href="https://cineville.nl/nl-NL/films/{slug}"><b>{title}</b></a>'
+        locale = FILM_LOCALES.get(language, "nl-NL")
+        title_html = f'<a href="https://cineville.nl/{locale}/films/{slug}"><b>{title}</b></a>'
     else:
         title_html = f"<b>{title}</b>"
-    lines = [
-        f"🎬 {title_html} staat op je watchlist en is deze week te zien "
-        f"in {', '.join(cities)}!"
-    ]
+    lines = [t(language, "notify", title_html=title_html, cities=", ".join(cities))]
     if ratings:
         bits = []
         if ratings.get("imdb"):
-            bits.append(f"⭐ IMDb {ratings['imdb']}/10")
+            bits.append(t(language, "rating_imdb", value=ratings["imdb"]))
         if ratings.get("rt"):
-            bits.append(f"🍅 Rotten Tomatoes {ratings['rt']}")
+            bits.append(t(language, "rating_rt", value=ratings["rt"]))
         if bits:
             lines.append(" · ".join(bits))
     return "\n".join(lines)
@@ -241,24 +300,21 @@ def prune_history(history, lookback_weeks, cutoff_date):
 def run_check(config):
     bot_token = config["telegram_bot_token"]
     chat_id = config["telegram_chat_id"]
+    language = config.get("language", "nl")
 
     try:
         token, user_id, expires = get_access_token(config["cineville_cookie"])
     except requests.RequestException as e:
         log.exception("Kon Cineville-sessie niet verversen")
-        send_telegram(bot_token, chat_id, f"⚠️ Cineville-check mislukt (netwerkfout): {e}")
+        send_telegram(bot_token, chat_id, t(language, "network_error", error=e))
         return
 
     if not token or not user_id:
         log.error("Geen geldig accessToken/user_id - cookie is waarschijnlijk verlopen")
-        send_telegram(
-            bot_token, chat_id,
-            "⚠️ Je Cineville-sessie is verlopen. Log opnieuw in via cineville.nl "
-            "en ververs de 'cineville_cookie' in config.json.",
-        )
+        send_telegram(bot_token, chat_id, t(language, "cookie_expired"))
         return
 
-    check_cookie_expiry(expires, config.get("cookie_warning_days", 5), bot_token, chat_id)
+    check_cookie_expiry(expires, config.get("cookie_warning_days", 5), bot_token, chat_id, language)
 
     try:
         watchlist = fetch_watchlist(user_id, token)
@@ -290,13 +346,13 @@ def run_check(config):
             omdb_api_key = config.get("omdb_api_key")
             for pid in newly_available:
                 details = fetch_production(pid) or {}
-                title = details.get("title") or watchlist.get(pid) or "Onbekende titel"
+                title = details.get("title") or watchlist.get(pid) or t(language, "unknown_title")
                 slug = details.get("slug")
                 ratings = fetch_ratings(title, details.get("release_year"), omdb_api_key)
                 log.info("Nieuw beschikbaar: %s", title)
                 send_telegram(
                     bot_token, chat_id,
-                    build_message(title, slug, config["cities"], ratings),
+                    build_message(title, slug, config["cities"], ratings, language),
                 )
 
         history[current_week_key] = sorted(week_ids)
@@ -305,12 +361,13 @@ def run_check(config):
         send_telegram(
             bot_token, chat_id,
             build_summary_message(
-                first_run, len(matches), len(newly_available), len(week_ids), config["cities"]
+                first_run, len(matches), len(newly_available), len(week_ids),
+                config["cities"], language,
             ),
         )
     except Exception as e:
         log.exception("Onverwachte fout tijdens de controle")
-        send_telegram(bot_token, chat_id, f"⚠️ Cineville-check mislukt: {e}")
+        send_telegram(bot_token, chat_id, t(language, "unexpected_error", error=e))
 
 
 def main():

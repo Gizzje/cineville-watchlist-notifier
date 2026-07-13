@@ -29,8 +29,8 @@ poster and description for it.)*
 Every run also sends a short heartbeat, so you know the check actually ran
 even when there's nothing new:
 
-> ✅ Cineville-check gedaan: 3 watchlist-film(s) deze week in amsterdam,
-> amstelveen, waarvan 1 nieuw beschikbaar.
+> ✅ Cineville check done: 5 watchlist film(s) this week in amsterdam,
+> amstelveen, of which 0 newly available.
 
 ## Features
 
@@ -39,13 +39,15 @@ even when there's nothing new:
 - Only notifies about films that were *absent* from the schedule for a
   configurable number of weeks (default 4) before reappearing — so a film
   that's been running continuously won't spam you every week.
-- Adds a clickable link to the film's Cineville page.
+- Adds a clickable link to the film's Cineville page (in Dutch or English,
+  depending on your language setting).
 - Optionally adds IMDb / Rotten Tomatoes ratings via [OMDb](https://www.omdbapi.com/).
 - Weekly heartbeat message so you know the check is still running.
 - Proactively warns you before your Cineville login session expires.
+- Notifications in Dutch or English, switchable via config or a bot command.
 - Optional Telegram bot listener so you can change settings
-  (`/setweeks`, `/setcookie`, `/checknow`, `/status`) without touching the
-  server.
+  (`/setweeks`, `/setcookie`, `/setlanguage`, `/checknow`, `/status`)
+  without touching the server.
 
 ## How it works
 
@@ -101,6 +103,7 @@ cp config.example.json config.json   # then fill it in, see SETUP.md
 | `bot_offset_file`    | no       | Used by the bot listener to track processed Telegram messages.                |
 | `omdb_api_key`       | no       | Free OMDb key for IMDb/Rotten Tomatoes ratings; omit to skip ratings.          |
 | `cookie_warning_days`| no       | Days before session expiry to start warning you (default 5).                  |
+| `language`           | no       | `"nl"` (default) or `"en"` — language of all Telegram messages and links.     |
 
 ## Limitations
 
@@ -109,7 +112,9 @@ cp config.example.json config.json   # then fill it in, see SETUP.md
 - Your Cineville login session needs to be refreshed manually every so
   often (the script warns you before it expires — see SETUP.md for how
   long that typically lasts and how to grab a fresh one).
-- Notification text is currently hardcoded in Dutch.
+- Only Dutch and English are supported; other languages would need a new
+  entry in the `MESSAGES` dict in `cineville_notify.py` (and `BOT_MESSAGES`
+  in `cineville_bot_listener.py`).
 - Only tested with Amsterdam/Amstelveen, but any valid Cineville city slug
   should work.
 

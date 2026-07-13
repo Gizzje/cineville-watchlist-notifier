@@ -1,7 +1,7 @@
 """
 Luistert continu naar Telegram-berichten van jouw eigen chat, zodat je
-config.json (cookie, aantal weken historie) kunt aanpassen of een controle
-handmatig kunt starten zonder in te loggen op de server.
+config.json (cookie, aantal weken historie, taal) kunt aanpassen of een
+controle handmatig kunt starten zonder in te loggen op de server.
 
 Draait als losse systemd-service naast de cron-job van cineville_notify.py.
 """
@@ -18,14 +18,69 @@ import cineville_notify as cn
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("cineville_bot_listener")
 
-HELP_TEXT = (
-    "Beschikbare commando's:\n"
-    "/status - toon huidige instellingen\n"
-    "/setweeks <getal> - stel het aantal weken historie in (1-52)\n"
-    "/setcookie <waarde> - vervang de Cineville-sessiecookie\n"
-    "/checknow - voer meteen een controle uit\n"
-    "/help - deze lijst"
-)
+BOT_MESSAGES = {
+    "nl": {
+        "help": (
+            "Beschikbare commando's:\n"
+            "/status - toon huidige instellingen\n"
+            "/setweeks <getal> - stel het aantal weken historie in (1-52)\n"
+            "/setcookie <waarde> - vervang de Cineville-sessiecookie\n"
+            "/setlanguage <nl|en> - taal van de meldingen\n"
+            "/checknow - voer meteen een controle uit\n"
+            "/help - deze lijst"
+        ),
+        "status": (
+            "Steden: {cities}\nTaal: {language}\nWeken historie: {weeks}\n"
+            "Cookie ingesteld: {cookie_set}\nLaatst gecontroleerde week: {last_week}"
+        ),
+        "cookie_yes": "ja",
+        "cookie_no": "nee",
+        "no_week_yet": "nog geen",
+        "setweeks_usage": "Gebruik: /setweeks <getal tussen 1 en 52>",
+        "setweeks_confirm": "Aantal weken historie is nu {n}.",
+        "setcookie_usage": "Gebruik: /setcookie <plak hier de cookie-waarde>",
+        "setcookie_confirm": "Cookie bijgewerkt.",
+        "setlanguage_usage": "Gebruik: /setlanguage nl of /setlanguage en",
+        "setlanguage_confirm": "Taal ingesteld op Nederlands.",
+        "checknow_started": "Controle gestart...",
+        "checknow_done": "Controle klaar.",
+        "checknow_failed": "Controle mislukt: {error}",
+        "unknown_command": "Onbekend commando. Stuur /help voor een overzicht.",
+    },
+    "en": {
+        "help": (
+            "Available commands:\n"
+            "/status - show current settings\n"
+            "/setweeks <number> - set weeks of history to keep (1-52)\n"
+            "/setcookie <value> - replace the Cineville session cookie\n"
+            "/setlanguage <nl|en> - notification language\n"
+            "/checknow - run a check immediately\n"
+            "/help - this list"
+        ),
+        "status": (
+            "Cities: {cities}\nLanguage: {language}\nWeeks of history: {weeks}\n"
+            "Cookie set: {cookie_set}\nLast checked week: {last_week}"
+        ),
+        "cookie_yes": "yes",
+        "cookie_no": "no",
+        "no_week_yet": "none yet",
+        "setweeks_usage": "Usage: /setweeks <number between 1 and 52>",
+        "setweeks_confirm": "Weeks of history is now {n}.",
+        "setcookie_usage": "Usage: /setcookie <paste the cookie value here>",
+        "setcookie_confirm": "Cookie updated.",
+        "setlanguage_usage": "Usage: /setlanguage nl or /setlanguage en",
+        "setlanguage_confirm": "Language set to English.",
+        "checknow_started": "Check started...",
+        "checknow_done": "Check done.",
+        "checknow_failed": "Check failed: {error}",
+        "unknown_command": "Unknown command. Send /help for an overview.",
+    },
+}
+
+
+def bt(lang, key, **kwargs):
+    strings = BOT_MESSAGES.get(lang, BOT_MESSAGES["nl"])
+    return strings[key].format(**kwargs)
 
 
 def load_config(path):
@@ -60,24 +115,27 @@ def save_offset(path, offset):
 def handle_command(text, config, config_path):
     bot_token = config["telegram_bot_token"]
     chat_id = config["telegram_chat_id"]
+    language = config.get("language", "nl")
     parts = text.strip().split(maxsplit=1)
     cmd = parts[0].lower()
     arg = parts[1].strip() if len(parts) > 1 else ""
 
     if cmd in ("/help", "/start"):
-        send(bot_token, chat_id, HELP_TEXT)
+        send(bot_token, chat_id, bt(language, "help"))
 
     elif cmd == "/status":
         history = cn.load_history(config["history_file"])
         weeks_known = sorted(history.keys())
-        last_week = weeks_known[-1] if weeks_known else "nog geen"
-        cookie_set = "ja" if config.get("cineville_cookie") else "nee"
+        last_week = weeks_known[-1] if weeks_known else bt(language, "no_week_yet")
+        cookie_set = bt(language, "cookie_yes" if config.get("cineville_cookie") else "cookie_no")
         send(
             bot_token, chat_id,
-            f"Steden: {', '.join(config['cities'])}\n"
-            f"Weken historie: {config.get('lookback_weeks', 4)}\n"
-            f"Cookie ingesteld: {cookie_set}\n"
-            f"Laatst gecontroleerde week: {last_week}",
+            bt(
+                language, "status",
+                cities=", ".join(config["cities"]), language=language,
+                weeks=config.get("lookback_weeks", 4), cookie_set=cookie_set,
+                last_week=last_week,
+            ),
         )
 
     elif cmd == "/setweeks":
@@ -86,31 +144,40 @@ def handle_command(text, config, config_path):
             if not (1 <= n <= 52):
                 raise ValueError
         except ValueError:
-            send(bot_token, chat_id, "Gebruik: /setweeks <getal tussen 1 en 52>")
+            send(bot_token, chat_id, bt(language, "setweeks_usage"))
             return
         config["lookback_weeks"] = n
         save_config(config_path, config)
-        send(bot_token, chat_id, f"Aantal weken historie is nu {n}.")
+        send(bot_token, chat_id, bt(language, "setweeks_confirm", n=n))
 
     elif cmd == "/setcookie":
         if not arg:
-            send(bot_token, chat_id, "Gebruik: /setcookie <plak hier de cookie-waarde>")
+            send(bot_token, chat_id, bt(language, "setcookie_usage"))
             return
         config["cineville_cookie"] = arg
         save_config(config_path, config)
-        send(bot_token, chat_id, "Cookie bijgewerkt.")
+        send(bot_token, chat_id, bt(language, "setcookie_confirm"))
+
+    elif cmd == "/setlanguage":
+        new_language = arg.strip().lower()
+        if new_language not in ("nl", "en"):
+            send(bot_token, chat_id, bt(language, "setlanguage_usage"))
+            return
+        config["language"] = new_language
+        save_config(config_path, config)
+        send(bot_token, chat_id, bt(new_language, "setlanguage_confirm"))
 
     elif cmd == "/checknow":
-        send(bot_token, chat_id, "Controle gestart...")
+        send(bot_token, chat_id, bt(language, "checknow_started"))
         try:
             cn.run_check(config)
-            send(bot_token, chat_id, "Controle klaar.")
+            send(bot_token, chat_id, bt(language, "checknow_done"))
         except Exception as e:
             log.exception("Fout tijdens handmatige controle")
-            send(bot_token, chat_id, f"Controle mislukt: {e}")
+            send(bot_token, chat_id, bt(language, "checknow_failed", error=e))
 
     else:
-        send(bot_token, chat_id, "Onbekend commando. Stuur /help voor een overzicht.")
+        send(bot_token, chat_id, bt(language, "unknown_command"))
 
 
 def main():

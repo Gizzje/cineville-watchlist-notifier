@@ -67,7 +67,8 @@ Copy `config.example.json` to `config.json` and fill it in:
   "history_file": "history.json",
   "bot_offset_file": "bot_offset.json",
   "omdb_api_key": "... (step 3, optional) ...",
-  "cookie_warning_days": 5
+  "cookie_warning_days": 5,
+  "language": "nl"
 }
 ```
 
@@ -139,6 +140,7 @@ without logging into the server:
 - `/setweeks <n>` — change how many weeks of history to keep (1-52)
 - `/setcookie <value>` — replace the session cookie (see step 2 for how to
   get a fresh one)
+- `/setlanguage <nl|en>` — switch notification language
 - `/checknow` — run a check immediately
 - `/help` — list commands
 
