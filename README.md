@@ -1,8 +1,8 @@
 # Cineville Watchlist Notifier
 
 A small Python script + Telegram bot that watches your [Cineville](https://cineville.nl)
-watchlist and tells you when a film that hasn't been playing for a while
-shows up again in the weekly cinema schedule.
+watchlist and tells you when a film that hasn't been playing yet or for a
+while shows up again in the weekly cinema schedule.
 
 ## Why
 
