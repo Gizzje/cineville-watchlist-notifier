@@ -1,0 +1,11 @@
+{
+  "cineville_cookie": "PLAK_HIER_JE_COOKIE_HEADER",
+  "telegram_bot_token": "PLAK_HIER_JE_BOT_TOKEN",
+  "telegram_chat_id": "PLAK_HIER_JE_CHAT_ID",
+  "cities": ["amsterdam", "amstelveen"],
+  "lookback_weeks": 4,
+  "history_file": "history.json",
+  "bot_offset_file": "bot_offset.json",
+  "omdb_api_key": null,
+  "cookie_warning_days": 5
+}

@@ -1,0 +1,19 @@
+# Bevat je echte cookie/tokens - nooit committen
+config.json
+
+# Persoonlijke watchlist-/geschiedenisdata
+history.json
+bot_offset.json
+
+# Logs
+run.log
+*.log
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Editor/tool-config
+.claude/
